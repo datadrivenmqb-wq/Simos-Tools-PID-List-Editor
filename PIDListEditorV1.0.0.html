@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simos Tools PID Editor</title>
+    <style>
+        :root {
+            --bg-checked-ok: #d1e7dd;       /* Light Green */
+            --bg-unchecked: #fff3cd;        /* Light Yellow */
+            --bg-duplicate: #f8d7da;        /* Light Red */
+            --bg-calculated: #cff4fc;       /* Light Blue */
+            --bg-duplicate-inactive: #e2e3e5; /* Light Grey */
+            
+            /* Intensified Colors for Active Editing (Row Selected) */
+            --bg-checked-active: #a8d5ba;
+            --bg-unchecked-active: #ffe08a;
+            --bg-duplicate-active: #f5c2c7;
+            --bg-calculated-active: #9eeaf9;
+            --bg-duplicate-inactive-active: #c6c7c8;
+
+            --border-color: #dee2e6;
+            --row-height: 35px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 20px;
+            background-color: #f8f9fa;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            overflow: hidden; 
+        }
+
+        header {
+            flex: 0 0 auto;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ccc;
+        }
+
+        h1 { margin: 0 0 10px 0; font-size: 1.5rem; display: inline-block; }
+
+        .controls { display: flex; gap: 10px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+
+        /* Inputs & Buttons */
+        input[type="text"].search-box {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 200px;
+        }
+
+        button {
+            padding: 8px 16px;
+            cursor: pointer;
+            border: 1px solid #007bff;
+            background-color: #007bff;
+            color: white;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #ccc; border-color: #ccc; cursor: not-allowed; }
+        
+        button.secondary { background-color: #6c757d; border-color: #6c757d; }
+        button.secondary:hover { background-color: #545b62; }
+        
+        button.success { background-color: #198754; border-color: #198754; }
+        button.success:hover { background-color: #157347; }
+
+        button.danger { background-color: #dc3545; border-color: #dc3545; }
+        button.danger:hover { background-color: #bb2d3b; }
+
+        /* Sort Controls Container */
+        .sort-controls {
+            margin-left: auto; 
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #e9ecef;
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        
+        .sort-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .sort-label {
+            font-size: 12px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        select {
+            padding: 4px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 13px;
+            max-width: 130px;
+        }
+
+        /* VIRTUAL SCROLL CONTAINER */
+        .table-wrapper {
+            flex: 1 1 auto;
+            overflow: auto; 
+            border: 1px solid var(--border-color);
+            background: white;
+            position: relative;
+            padding-right: 20px;
+            padding-bottom: 60px; 
+            
+            /* Force scrollbar behavior for mouse users */
+            scrollbar-width: auto; 
+            scrollbar-color: #c1c1c1 #f1f1f1; 
+        }
+
+        /* Webkit Scrollbar Styling (Chrome, Edge, Safari) */
+        .table-wrapper::-webkit-scrollbar {
+            width: 16px;   
+            height: 16px;  
+        }
+        .table-wrapper::-webkit-scrollbar-track {
+            background: #f8f9fa; 
+            border-left: 1px solid #dee2e6;
+            border-top: 1px solid #dee2e6;
+        }
+        .table-wrapper::-webkit-scrollbar-thumb {
+            background-color: #c1c1c1; 
+            border-radius: 4px;
+            border: 3px solid #f8f9fa; 
+        }
+        .table-wrapper::-webkit-scrollbar-thumb:hover {
+            background-color: #a8a8a8; 
+        }
+        .table-wrapper::-webkit-scrollbar-corner {
+            background: #f8f9fa;
+        }
+
+        table {
+            border-collapse: collapse;
+            font-size: 13px;
+            table-layout: fixed; 
+            width: fit-content; 
+            min-width: 100%;
+        }
+
+        thead {
+            position: sticky;
+            top: 0;
+            background-color: #e9ecef;
+            z-index: 100;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        th {
+            padding: 0 8px;
+            border: 1px solid var(--border-color);
+            text-align: left;
+            height: var(--row-height);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            box-sizing: border-box;
+            position: relative;
+            user-select: none;
+        }
+        
+        td {
+            border: 1px solid var(--border-color);
+            height: var(--row-height);
+            padding: 0; 
+            position: relative; 
+            overflow: visible; 
+        }
+
+        /* Inner Content Div */
+        .cell-content {
+            display: block;
+            width: 100%;
+            height: 100%;
+            padding: 0 8px;
+            line-height: var(--row-height); 
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            box-sizing: border-box;
+            background-color: transparent;
+            cursor: text;
+        }
+
+        /* Pop-out editing style */
+        .cell-content:focus {
+            position: absolute;
+            top: -1px; 
+            left: -1px;
+            width: auto;      
+            min-width: 100%;  
+            height: auto;     
+            min-height: calc(var(--row-height) + 2px);
+            z-index: 1000;    
+            background-color: #fff;
+            outline: 2px solid #007bff;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            overflow: visible;
+            padding-right: 15px; 
+        }
+
+        th:first-child, td:first-child { text-align: center; }
+
+        /* Column Resizer Handle */
+        .resizer {
+            position: absolute;
+            right: 0;
+            top: 0;
+            height: 100%;
+            width: 12px;
+            background: transparent;
+            cursor: col-resize;
+            z-index: 101;
+            transform: translateX(50%);
+        }
+        .resizer:hover, .resizer.resizing {
+            background: rgba(0, 123, 255, 0.3); 
+        }
+
+        /* --- Row Highlighting --- */
+        
+        /* Normal States */
+        tr.status-checked { background-color: var(--bg-checked-ok); }
+        tr.status-unchecked { background-color: var(--bg-unchecked); }
+        tr.status-duplicate { background-color: var(--bg-duplicate); }
+        tr.status-calculated { background-color: var(--bg-calculated); }
+        tr.status-duplicate-inactive { background-color: var(--bg-duplicate-inactive); }
+
+        /* Active/Selected Row Styles */
+        tr.row-selected {
+            position: relative;
+            z-index: 50; /* Bring above other rows */
+            outline: 2px solid #333; /* Bold Outline */
+            outline-offset: -2px;
+        }
+
+        /* Intensified Backgrounds for Active Rows */
+        tr.status-checked.row-selected { background-color: var(--bg-checked-active); }
+        tr.status-unchecked.row-selected { background-color: var(--bg-unchecked-active); }
+        tr.status-duplicate.row-selected { background-color: var(--bg-duplicate-active); }
+        tr.status-calculated.row-selected { background-color: var(--bg-calculated-active); }
+        tr.status-duplicate-inactive.row-selected { background-color: var(--bg-duplicate-inactive-active); }
+
+
+        /* Legend Styles */
+        .legend-row { display: flex; align-items: center; gap: 15px; margin-top: 5px; flex-wrap: wrap; }
+        
+        .legend-item { 
+            display: flex; align-items: center; gap: 5px; white-space: nowrap; 
+            cursor: pointer;
+            padding: 2px 5px;
+            border-radius: 4px;
+            border: 1px solid transparent;
+            user-select: none;
+            font-size: 12px;
+        }
+        
+        .legend-item:hover {
+            background-color: #e9ecef;
+            border-color: #ccc;
+        }
+
+        .legend-item.filter-active {
+            background-color: #333;
+            color: #fff;
+            border-color: #333;
+        }
+        .legend-item.filter-active .count-badge { color: #fff; }
+
+        /* UPDATED: Consistent Size for Refresh/Clear Buttons */
+        .legend-actions button {
+            height: 24px;       /* Fixed height matches */
+            padding: 0 10px;
+            min-width: 70px;    /* Force minimum width so Clear matches Refresh */
+            font-size: 11px;
+            border: 1px solid #999;
+            background-color: white;
+            color: #333;
+            border-radius: 3px;
+            cursor: pointer;
+            display: inline-flex; /* Use flex to center content */
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+        }
+        .legend-actions button:hover { background-color: #f0f0f0; }
+
+        .box { width: 15px; height: 15px; border: 1px solid #999; }
+        .count-badge { font-weight: bold; margin-left: 2px; color: #555; }
+        
+        #loadingMsg { display:none; color: #666; font-style: italic; margin-left: 10px;}
+        #stats { font-size:12px; color:#555; margin-left: 20px; white-space: nowrap; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div>
+            <h1>ST PID List Editor V1.0.0 - <a href="https://datadrivenmqb.com" target="_blank">Data Driven MQB</a></h1>
+            <div class="legend-row">
+                <div class="legend-item" onclick="toggleStatusFilter('active')" id="leg_active">
+                    <div class="box" style="background:var(--bg-checked-ok)"></div> 
+                    Active <span class="count-badge" id="cntActive">(0)</span>
+                </div>
+                <div class="legend-item" onclick="toggleStatusFilter('calculated')" id="leg_calc">
+                    <div class="box" style="background:var(--bg-calculated)"></div> 
+                    Calculated (Active) <span class="count-badge" id="cntCalc">(0)</span>
+                </div>
+                <div class="legend-item" onclick="toggleStatusFilter('duplicate')" id="leg_dup">
+                    <div class="box" style="background:var(--bg-duplicate)"></div> 
+                    Duplicate (Active) <span class="count-badge" id="cntDup">(0)</span>
+                </div>
+                <div class="legend-item" onclick="toggleStatusFilter('duplicate-inactive')" id="leg_dupinactive">
+                    <div class="box" style="background:var(--bg-duplicate-inactive)"></div> 
+                    Duplicate (Inactive) <span class="count-badge" id="cntDupInactive">(0)</span>
+                </div>
+                <div class="legend-item" onclick="toggleStatusFilter('unchecked')" id="leg_unchecked">
+                    <div class="box" style="background:var(--bg-unchecked)"></div> 
+                    Unchecked <span class="count-badge" id="cntUnchecked">(0)</span>
+                </div>
+                
+                <!-- Filter Actions -->
+                <div class="legend-actions">
+                    <button id="btnRefreshFilters" onclick="applyFilters()" title="Refresh view to apply active filters">⟳ Refresh</button>
+                    <button id="btnClearFilters" onclick="clearStatusFilters()" title="Show All">✖ Clear</button>
+                </div>
+            </div>
+        </div>
+        <div class="controls">
+            <input type="file" id="fileInputBase" hidden accept=".csv,.txt">
+            <button onclick="document.getElementById('fileInputBase').click()">1. Import Base List</button>
+
+            <input type="file" id="fileInputAdd" hidden accept=".csv,.txt">
+            <button class="secondary" id="btnAddMore" onclick="document.getElementById('fileInputAdd').click()" disabled>2. Add More PIDs</button>
+
+            <button class="success" id="btnExport" onclick="exportData()" disabled>3. Export PID List</button>
+
+            <!-- Search Box -->
+            <input type="text" id="searchInput" class="search-box" placeholder="Search PIDs..." disabled>
+            
+            <button class="danger" onclick="clearAll()">Clear All</button>
+
+            <span id="loadingMsg">Processing...</span>
+            <span id="stats"></span>
+
+            <!-- SORT CONTROLS -->
+            <div class="sort-controls">
+                <div class="sort-group">
+                    <span class="sort-label">Sort:</span>
+                    <select id="sortCol1" disabled><option value="" disabled selected>Primary...</option></select>
+                    <select id="sortDir1" disabled><option value="asc">Asc</option><option value="desc">Desc</option></select>
+                </div>
+                <div class="sort-group">
+                    <span class="sort-label">Then:</span>
+                    <select id="sortCol2" disabled><option value="" selected>Secondary...</option></select>
+                    <select id="sortDir2" disabled><option value="asc">Asc</option><option value="desc">Desc</option></select>
+                </div>
+                <button class="secondary" id="btnSort" onclick="executeManualSort()" disabled>Sort</button>
+                <button class="danger" id="btnResetSort" onclick="removeSort()" disabled title="Restore original file order">✖ Reset</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="table-wrapper" id="scrollContainer">
+        <table id="pidTable">
+            <colgroup id="tableColGroup"></colgroup>
+            <thead id="tableHead"></thead>
+            <tbody id="tableBody">
+                <tr><td colspan="5" style="border:none; padding:20px; color:#999; text-align:center;">No data loaded.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+<script>
+    // --- Configuration & State ---
+    const ROW_HEIGHT = 35; 
+    const CHECKBOX_WIDTH = 40;
+    const DEFAULT_COL_WIDTH = 150;
+    
+    // STRICT COLUMN DEFINITION
+    const REQUIRED_HEADERS = [
+        "Name", "Unit", "Equation", "Format", "Address", "Length", 
+        "Signed", "ProgMin", "ProgMax", "WarnMin", "WarnMax", 
+        "Smoothing", "Enabled", "Tabs", "Assign To"
+    ];
+
+    // Column Headers for internal usage
+    const ADDRESS_COL_NAME = "Address";
+    const NAME_COL_NAME = "Name";
+    const ASSIGN_TO_COL = "Assign To";
+    const DESCRIPTION_COL = "Description";
+    
+    // Core Data
+    let pidData = [];         
+    let filteredData = [];    
+    let headers = [];      
+    let activeKeyCounts = {}; 
+    let columnWidths = [];
+
+    // Sorting & Filtering State
+    let currentStatusFilters = new Set(); // Stores multiple selected filters
+
+    // Virtual Scroll State
+    let visibleRows = 20;
+    let startIndex = 0;
+    
+    // DOM Elements
+    const scrollContainer = document.getElementById('scrollContainer');
+    const tableColGroup = document.getElementById('tableColGroup');
+    const tableBody = document.getElementById('tableBody');
+    const tableHead = document.getElementById('tableHead');
+    const btnAddMore = document.getElementById('btnAddMore');
+    const btnExport = document.getElementById('btnExport');
+    const searchInput = document.getElementById('searchInput');
+    const loadingMsg = document.getElementById('loadingMsg');
+    const statsLabel = document.getElementById('stats');
+    
+    // Sort Elements
+    const sortCol1 = document.getElementById('sortCol1');
+    const sortDir1 = document.getElementById('sortDir1');
+    const sortCol2 = document.getElementById('sortCol2');
+    const sortDir2 = document.getElementById('sortDir2');
+    const btnSort = document.getElementById('btnSort');
+    const btnResetSort = document.getElementById('btnResetSort');
+
+    // Count Elements
+    const elCntActive = document.getElementById('cntActive');
+    const elCntUnchecked = document.getElementById('cntUnchecked');
+    const elCntDup = document.getElementById('cntDup');
+    const elCntCalc = document.getElementById('cntCalc');
+    const elCntDupInactive = document.getElementById('cntDupInactive');
+
+    // --- CSV Parsing ---
+    // Returns { rawHeaders: [], rawRows: [][] }
+    function parseCSVRaw(text) {
+        const lines = text.trim().split(/\r?\n/).filter(line => line.trim() !== "");
+        if (lines.length === 0) return { rawHeaders: [], rawRows: [] };
+
+        const splitLine = (row) => {
+            const result = [];
+            let cell = '';
+            let inQuotes = false;
+            for (let i = 0; i < row.length; i++) {
+                if (row[i] === '"') { inQuotes = !inQuotes; }
+                else if (row[i] === ',' && !inQuotes) { result.push(cell.trim()); cell = ''; }
+                else { cell += row[i]; }
+            }
+            result.push(cell.trim());
+            return result;
+        };
+
+        const rawHeaders = splitLine(lines[0]);
+        const rawRows = [];
+        for (let i = 1; i < lines.length; i++) {
+            rawRows.push(splitLine(lines[i]));
+        }
+        return { rawHeaders, rawRows };
+    }
+
+    // --- File Handlers ---
+    document.getElementById('fileInputBase').addEventListener('change', async (e) => {
+        handleFileLoad(e.target.files[0], true);
+    });
+
+    document.getElementById('fileInputAdd').addEventListener('change', async (e) => {
+        handleFileLoad(e.target.files[0], false);
+    });
+
+    async function handleFileLoad(file, isBase) {
+        if(!file) return;
+        loadingMsg.style.display = "inline";
+        
+        setTimeout(() => {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const { rawHeaders, rawRows } = parseCSVRaw(evt.target.result);
+                
+                // --- VALIDATION ---
+                const errors = validateHeaders(rawHeaders);
+                if (errors.length > 0) {
+                    alert("File Import Failed:\n\n" + errors.join('\n'));
+                    loadingMsg.style.display = "none";
+                    document.getElementById(isBase ? 'fileInputBase' : 'fileInputAdd').value = '';
+                    return;
+                }
+
+                // --- DATA MAPPING ---
+                const mappedRows = mapRowsToObject(rawRows);
+
+                if (isBase) {
+                    // Set Global Headers (Required + Description)
+                    headers = [...REQUIRED_HEADERS, DESCRIPTION_COL];
+
+                    pidData = mappedRows.map((r, i) => ({ 
+                        ...r, 
+                        _checked: true,
+                        _originalId: i 
+                    }));
+                    
+                    reindexData();
+                    columnWidths = headers.map(h => (h === DESCRIPTION_COL) ? 300 : DEFAULT_COL_WIDTH);
+                    
+                    populateSortDropdowns();
+                    buildTableStructure();
+                    enableControls();
+                } else {
+                    const currentLen = pidData.length;
+                    const newRows = mappedRows.map((r, i) => ({
+                        ...r,
+                        _checked: false,
+                        _originalId: currentLen + i 
+                    }));
+                    
+                    pidData = [...pidData, ...newRows];
+                    reindexData();
+                }
+
+                updateStats(); 
+                applyFilters(); 
+                
+                loadingMsg.style.display = "none";
+                document.getElementById(isBase ? 'fileInputBase' : 'fileInputAdd').value = '';
+            };
+            reader.readAsText(file);
+        }, 50);
+    }
+
+    // --- Validation & Mapping ---
+
+    function validateHeaders(fileHeaders) {
+        let errors = [];
+        
+        // 1. Check if we have enough columns
+        if (fileHeaders.length < REQUIRED_HEADERS.length) {
+            errors.push(`Missing columns. Expected at least ${REQUIRED_HEADERS.length}, found ${fileHeaders.length}.`);
+            return errors;
+        }
+
+        // 2. Check strict ordering and names for the first N columns
+        for(let i = 0; i < REQUIRED_HEADERS.length; i++) {
+            const req = REQUIRED_HEADERS[i];
+            const found = fileHeaders[i] || "";
+            if (found.trim().toLowerCase() !== req.toLowerCase()) {
+                errors.push(`Column ${i+1}: Expected "${req}", found "${found}"`);
+            }
+        }
+        return errors;
+    }
+
+    function mapRowsToObject(rawRows) {
+        // Maps raw array data to objects with standard keys
+        // Columns 0 to (REQUIRED_HEADERS.length - 1) -> REQUIRED_HEADERS
+        // The column immediately following Required Headers is assumed to be Description
+        
+        return rawRows.map(rowArray => {
+            let obj = {};
+            
+            // Map required
+            REQUIRED_HEADERS.forEach((key, index) => {
+                obj[key] = rowArray[index] || "";
+            });
+
+            // Map Description (Always the column after the last required header)
+            obj[DESCRIPTION_COL] = rowArray[REQUIRED_HEADERS.length] || ""; 
+
+            return obj;
+        });
+    }
+
+    function enableControls() {
+        btnAddMore.disabled = false;
+        btnExport.disabled = false;
+        searchInput.disabled = false;
+        sortCol1.disabled = false;
+        sortDir1.disabled = false;
+        sortCol2.disabled = false;
+        sortDir2.disabled = false;
+        btnSort.disabled = false;
+        btnResetSort.disabled = false;
+    }
+
+    function populateSortDropdowns() {
+        const opts = '<option value="_checked">Active Status (✓)</option>' + 
+                     headers.map(h => `<option value="${h}">${h}</option>`).join('');
+
+        sortCol1.innerHTML = '<option value="" disabled selected>Primary...</option>' + opts;
+        sortCol2.innerHTML = '<option value="" selected>Secondary...</option>' + opts;
+    }
+
+    function reindexData() {
+        // Updates dynamic index for Virtual Scroll mapping
+        pidData.forEach((row, index) => {
+            row._index = index; 
+        });
+    }
+
+    function clearAll() {
+        if (!confirm("Are you sure you want to clear all data?")) return;
+        
+        pidData = [];
+        filteredData = [];
+        headers = [];
+        columnWidths = [];
+        activeKeyCounts = {};
+        currentStatusFilters.clear();
+        
+        tableColGroup.innerHTML = '';
+        tableHead.innerHTML = '';
+        tableBody.innerHTML = '<tr><td colspan="5" style="border:none; padding:20px; color:#999; text-align:center;">No data loaded.</td></tr>';
+        
+        btnAddMore.disabled = true;
+        btnExport.disabled = true;
+        searchInput.disabled = true;
+        searchInput.value = '';
+        
+        sortCol1.disabled = true; sortDir1.disabled = true;
+        sortCol2.disabled = true; sortDir2.disabled = true;
+        btnSort.disabled = true;
+        btnResetSort.disabled = true;
+        
+        sortCol1.innerHTML = '<option value="" disabled selected>Primary...</option>';
+        sortCol2.innerHTML = '<option value="" selected>Secondary...</option>';
+
+        statsLabel.textContent = '';
+        
+        updateLegendUI();
+        elCntActive.textContent = "(0)";
+        elCntUnchecked.textContent = "(0)";
+        elCntDup.textContent = "(0)";
+        elCntCalc.textContent = "(0)";
+        elCntDupInactive.textContent = "(0)";
+        
+        document.getElementById('fileInputBase').value = '';
+        document.getElementById('fileInputAdd').value = '';
+    }
+
+    // --- Core Logic ---
+
+    // NEW: Helper function to determine if an address is calculated
+    function isCalculatedAddress(addr) {
+        return addr === "0xffffffff" || addr === "0xffff";
+    }
+
+    function getRowKey(row) {
+        const addr = (row[ADDRESS_COL_NAME] || "").toLowerCase();
+        if (isCalculatedAddress(addr)) { // Using new helper
+            const name = (row[NAME_COL_NAME] || "").toLowerCase();
+            return addr + "|" + name;
+        }
+        return addr;
+    }
+
+    function getRowStatus(row) {
+        const addr = (row[ADDRESS_COL_NAME] || "").toLowerCase();
+        const key = getRowKey(row);
+        const activeCount = activeKeyCounts[key] || 0;
+
+        if (row._checked) {
+            if (activeCount > 1) return 'duplicate';
+            if (isCalculatedAddress(addr)) return 'calculated'; // Using new helper
+            return 'active';
+        } else {
+            if (activeCount > 0) return 'duplicate-inactive';
+            return 'unchecked';
+        }
+    }
+
+    function updateStats() {
+        activeKeyCounts = {};
+        let totalChecked = 0;
+        
+        for (let i = 0; i < pidData.length; i++) {
+            if (pidData[i]._checked) {
+                totalChecked++;
+                const key = getRowKey(pidData[i]);
+                if (key) {
+                    activeKeyCounts[key] = (activeKeyCounts[key] || 0) + 1;
+                }
+            }
+        }
+
+        let cGreen = 0, cBlue = 0, cRed = 0, cYellow = 0, cGrey = 0;
+
+        for (let i = 0; i < pidData.length; i++) {
+            const status = getRowStatus(pidData[i]);
+            switch(status) {
+                case 'active': cGreen++; break;
+                case 'calculated': cBlue++; break;
+                case 'duplicate': cRed++; break;
+                case 'duplicate-inactive': cGrey++; break;
+                case 'unchecked': cYellow++; break;
+            }
+        }
+
+        elCntActive.textContent = `(${cGreen})`;
+        elCntCalc.textContent = `(${cBlue})`;
+        elCntDup.textContent = `(${cRed})`;
+        elCntDupInactive.textContent = `(${cGrey})`;
+        elCntUnchecked.textContent = `(${cYellow})`;
+        
+        return totalChecked; 
+    }
+
+    // --- Filter Logic ---
+    
+    // Text search always triggers a full refresh
+    searchInput.addEventListener('input', () => {
+        applyFilters();
+    });
+
+    function toggleStatusFilter(status) {
+        if (currentStatusFilters.has(status)) {
+            currentStatusFilters.delete(status);
+        } else {
+            currentStatusFilters.add(status);
+        }
+        updateLegendUI();
+        applyFilters();
+    }
+
+    function clearStatusFilters() {
+        currentStatusFilters.clear();
+        updateLegendUI();
+        applyFilters();
+    }
+
+    function updateLegendUI() {
+        document.querySelectorAll('.legend-item').forEach(el => el.classList.remove('filter-active'));
+        
+        const map = {
+            'active': 'leg_active',
+            'calculated': 'leg_calc',
+            'duplicate': 'leg_dup',
+            'duplicate-inactive': 'leg_dupinactive',
+            'unchecked': 'leg_unchecked'
+        };
+
+        currentStatusFilters.forEach(status => {
+            const id = map[status];
+            if(id) document.getElementById(id).classList.add('filter-active');
+        });
+    }
+
+    // --- Sorting Logic ---
+    function removeSort() {
+        // Sort by the static original ID to restore file order
+        pidData.sort((a, b) => a._originalId - b._originalId);
+        
+        // Reset Dropdowns
+        sortCol1.value = "";
+        sortDir1.value = "asc";
+        sortCol2.value = "";
+        sortDir2.value = "asc";
+
+        reindexData();
+        applyFilters();
+    }
+
+    function executeManualSort() {
+        const col1 = sortCol1.value;
+        const dir1 = sortDir1.value;
+        const col2 = sortCol2.value;
+        const dir2 = sortDir2.value;
+        
+        if (!col1) return;
+
+        pidData.sort((a, b) => {
+            let res = compare(a, b, col1, dir1);
+            if (res === 0 && col2) {
+                res = compare(a, b, col2, dir2);
+            }
+            return res;
+        });
+
+        reindexData();
+        applyFilters();
+    }
+
+    function compare(a, b, col, dir) {
+        let valA, valB;
+
+        if (col === '_checked') {
+            // Ascending (Checked First) -> Checked=0, Unchecked=1
+            // Descending (Unchecked First) -> Checked=0, Unchecked=1 (logic flipped below)
+            valA = a._checked ? 0 : 1;
+            valB = b._checked ? 0 : 1;
+        } else {
+            valA = String(a[col] || "").toLowerCase();
+            valB = String(b[col] || "").toLowerCase();
+            
+            // Numeric detection
+            const numA = parseFloat(valA);
+            const numB = parseFloat(valB);
+            if (!isNaN(numA) && !isNaN(numB)) {
+                valA = numA;
+                valB = numB;
+            }
+        }
+
+        if (valA < valB) return dir === 'asc' ? -1 : 1;
+        if (valA > valB) return dir === 'asc' ? 1 : -1;
+        return 0;
+    }
+
+    function applyFilters() {
+        const query = searchInput.value.toLowerCase().trim();
+        
+        filteredData = pidData.filter(row => {
+            // Text Search
+            const matchesText = !query || headers.some(h => {
+                const val = String(row[h] || "").toLowerCase();
+                return val.includes(query);
+            });
+            if(!matchesText) return false;
+
+            // Multiple Status Filter
+            if (currentStatusFilters.size > 0) {
+                const status = getRowStatus(row);
+                if (!currentStatusFilters.has(status)) return false;
+            }
+
+            return true;
+        });
+
+        startIndex = 0;
+        scrollContainer.scrollTop = 0;
+        
+        const totalChecked = pidData.filter(r => r._checked).length; 
+        const shown = filteredData.length;
+        const total = pidData.length;
+        statsLabel.textContent = `Showing ${shown} of ${total} | Total Selected: ${totalChecked}`;
+
+        renderChunk();
+    }
+
+    // --- View Update Only (No Filtering) ---
+    function updateViewOnly() {
+        const totalChecked = updateStats(); // Recalc counts
+        statsLabel.textContent = `Showing ${filteredData.length} of ${pidData.length} | Total Selected: ${totalChecked}`;
+        renderChunk(); // Re-render visible rows with new colors
+    }
+
+    // --- Table Structure ---
+    function buildTableStructure() {
+        updateColGroup();
+
+        let html = `<tr>`;
+        html += `<th>✓</th>`;
+        
+        headers.forEach((h, index) => {
+            html += `<th>
+                        ${h}
+                        <div class="resizer" data-col="${index}" title="Drag to resize, Double-click to auto-fit view"></div>
+                     </th>`;
+        });
+        html += `</tr>`;
+        tableHead.innerHTML = html;
+        setupColumnResizers();
+
+        const containerHeight = scrollContainer.clientHeight;
+        visibleRows = Math.ceil(containerHeight / ROW_HEIGHT) + 10;
+        
+        scrollContainer.removeEventListener('scroll', onScroll); 
+        scrollContainer.addEventListener('scroll', onScroll);
+    }
+
+    function updateColGroup() {
+        let html = `<col style="width: ${CHECKBOX_WIDTH}px;">`;
+        columnWidths.forEach(w => {
+            html += `<col style="width: ${w}px;">`;
+        });
+        tableColGroup.innerHTML = html;
+    }
+
+    // --- Virtual Scrolling ---
+    function onScroll() {
+        const scrollTop = scrollContainer.scrollTop;
+        const newStartIndex = Math.floor(scrollTop / ROW_HEIGHT);
+        if (Math.abs(newStartIndex - startIndex) > 5) {
+            startIndex = newStartIndex;
+            renderChunk();
+        }
+    }
+
+    function updateVirtualScroll() {
+        onScroll();
+        renderChunk();
+    }
+
+    function renderChunk() {
+        if (filteredData.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="' + (headers.length + 1) + '" style="padding:20px; text-align:center; color:#777;">No results found.</td></tr>';
+            return;
+        }
+
+        let renderStart = Math.max(0, startIndex - 5); 
+        let renderEnd = Math.min(filteredData.length, renderStart + visibleRows);
+        const topHeight = renderStart * ROW_HEIGHT;
+        const bottomHeight = (filteredData.length - renderEnd) * ROW_HEIGHT;
+
+        let rowsHtml = '';
+        
+        if (topHeight > 0) rowsHtml += `<tr style="height:${topHeight}px"><td colspan="${headers.length + 1}"></td></tr>`;
+
+        for (let i = renderStart; i < renderEnd; i++) {
+            const row = filteredData[i];
+            const status = getRowStatus(row);
+            
+            let cssClass = '';
+            switch(status) {
+                case 'active': cssClass = 'status-checked'; break;
+                case 'calculated': cssClass = 'status-calculated'; break;
+                case 'duplicate': cssClass = 'status-duplicate'; break;
+                case 'duplicate-inactive': cssClass = 'status-duplicate-inactive'; break;
+                default: cssClass = 'status-unchecked';
+            }
+
+            rowsHtml += `<tr class="${cssClass}">`;
+            rowsHtml += `<td><input type="checkbox" class="row-check" ${row._checked ? 'checked' : ''} data-idx="${row._index}"></td>`;
+            
+            headers.forEach(h => {
+                let val = row[h] !== undefined ? row[h] : "";
+                rowsHtml += `<td><div contenteditable="true" class="cell-content" data-idx="${row._index}" data-key="${h}">${val}</div></td>`;
+            });
+            rowsHtml += `</tr>`;
+        }
+
+        if (bottomHeight > 0) rowsHtml += `<tr style="height:${bottomHeight}px"><td colspan="${headers.length + 1}"></td></tr>`;
+
+        tableBody.innerHTML = rowsHtml;
+    }
+
+    // --- Column Resizing ---
+    function setupColumnResizers() {
+        const resizers = tableHead.querySelectorAll('.resizer');
+        let currentResizer, startX, startWidth, colIndex;
+
+        resizers.forEach(resizer => {
+            resizer.addEventListener('mousedown', (e) => {
+                e.preventDefault(); 
+                e.stopPropagation(); 
+                currentResizer = e.target;
+                currentResizer.classList.add('resizing');
+                startX = e.pageX;
+                colIndex = parseInt(currentResizer.dataset.col);
+                startWidth = columnWidths[colIndex];
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+            
+            resizer.addEventListener('click', (e) => e.stopPropagation());
+
+            resizer.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                const colIdx = parseInt(e.target.dataset.col);
+                const colName = headers[colIdx];
+                const cells = tableBody.querySelectorAll(`.cell-content[data-key="${colName}"]`);
+                let maxW = 50; 
+                const th = tableHead.querySelectorAll('th')[colIdx + 1]; 
+                if(th) maxW = Math.max(maxW, measureText(th.innerText));
+                cells.forEach(cell => { if(cell.scrollWidth > maxW) maxW = cell.scrollWidth; });
+                maxW += 20;
+                columnWidths[colIdx] = maxW;
+                const colEl = tableColGroup.children[colIdx + 1];
+                if (colEl) colEl.style.width = maxW + "px";
+            });
+        });
+
+        function measureText(str) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            context.font = 'bold 13px system-ui'; 
+            return context.measureText(str).width + 20;
+        }
+
+        function onMouseMove(e) {
+            if (!currentResizer) return;
+            const diff = e.pageX - startX;
+            let newWidth = startWidth + diff;
+            if (newWidth < 30) newWidth = 30;
+            columnWidths[colIndex] = newWidth;
+            const colEl = tableColGroup.children[colIndex + 1];
+            if (colEl) colEl.style.width = newWidth + "px";
+        }
+
+        function onMouseUp() {
+            if (currentResizer) {
+                currentResizer.classList.remove('resizing');
+                currentResizer = null;
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+            }
+        }
+    }
+
+    // --- Event Delegation ---
+    
+    // 1. Enter Key Handler
+    tableBody.addEventListener('keydown', (e) => {
+        if (e.target.classList.contains('cell-content') && e.key === 'Enter') {
+            e.preventDefault(); 
+            e.target.blur();    
+        }
+    });
+
+    tableBody.addEventListener('mouseover', (e) => {
+        const target = e.target;
+        if (target.classList.contains('cell-content')) {
+            if (target.scrollWidth > target.clientWidth) {
+                target.setAttribute('title', target.innerText);
+            } else {
+                target.removeAttribute('title');
+            }
+        }
+    });
+
+    tableBody.addEventListener('change', (e) => {
+        if (e.target.classList.contains('row-check')) {
+            const idx = parseInt(e.target.dataset.idx);
+            pidData[idx]._checked = e.target.checked;
+            
+            // KEY CHANGE: Do not Apply Filters here. Just update visual state.
+            updateViewOnly();
+        }
+    });
+
+    tableBody.addEventListener('input', (e) => {
+        if (e.target.classList.contains('cell-content')) {
+            const idx = parseInt(e.target.dataset.idx);
+            const key = e.target.dataset.key;
+            pidData[idx][key] = e.target.innerText.trim();
+        }
+    });
+
+    tableBody.addEventListener('focusin', (e) => {
+        const tr = e.target.closest('tr');
+        if (tr) {
+            document.querySelectorAll('tr.row-selected').forEach(r => r.classList.remove('row-selected'));
+            tr.classList.add('row-selected');
+        }
+    });
+
+    tableBody.addEventListener('focusout', (e) => {
+        if (e.target.classList.contains('cell-content')) {
+            e.target.scrollTop = 0;
+            e.target.scrollLeft = 0;
+            
+            if (e.target.dataset.key === ADDRESS_COL_NAME || e.target.dataset.key === NAME_COL_NAME) {
+                // KEY CHANGE: Do not Apply Filters here. Just update visual state.
+                updateViewOnly();
+            }
+        }
+    });
+
+    // --- Export ---
+    function exportData() {
+        const checked = pidData.filter(r => r._checked);
+        if(checked.length === 0) { alert("No PIDs selected"); return; }
+        
+        const name = prompt("Filename:", "Log_List");
+        if(!name) return;
+
+        const csvContent = [
+            headers.join(','),
+            ...checked.map(row => headers.map(h => {
+                let v = row[h] || "";
+                return v.includes(',') ? `"${v}"` : v;
+            }).join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], {type: 'text/csv'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name.endsWith('.csv') ? name : name + '.csv';
+        a.click();
+    }
+
+    window.addEventListener('resize', () => {
+        const containerHeight = scrollContainer.clientHeight;
+        visibleRows = Math.ceil(containerHeight / ROW_HEIGHT) + 10;
+        onScroll();
+    });
+
+</script>
+
+</body>
+</html>
