@@ -4,6 +4,8 @@ HTML-based PID List Editor for Simos Tools logging lists
 Description:
 This is a responsive PID List Editor for building and modifying Simos Tools logging lists. The purpose is to call out duplicate PIDs, show which are calculated, and allow easy combinining of multiple PID lists for customization. 
 
+Download instructions: Click on the PID List Editor (html) file. Select "Download raw file" in the upper RH corner. When downloaded, simply open the html file and it will launch in your web browser.
+
 How to use:
 1. Select a base logging list to start with. This can be what you're using currently, or something that mostly fits your needs. All PIDs from this initial base list will be "activated" or checked by default. Green PIDs are native PIDs direct from the car, blue PIDs are calculated (based on having a 0xffff or 0xffffffff address, depending on whether it is a Mode 22 or HSL list).
 
