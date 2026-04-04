@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simos Tools PID Editor V1.0</title>
+    <title>Simos Tools PID Editor V1.0.1</title>
+
     <style>
         :root {
             --bg-checked-ok: #d1e7dd;       /* Light Green */
@@ -309,7 +310,7 @@
 
     <header>
         <div>
-            <h1>ST PID List Editor V1.0 - <a href="https://datadrivenmqb.com" target="_blank">Data Driven MQB</a></h1>
+            <h1>ST PID List Editor V1.0.1 - <a href="https://datadrivenmqb.com" target="_blank">Data Driven MQB</a></h1>
             <div class="legend-row">
                 <div class="legend-item" onclick="toggleStatusFilter('active')" id="leg_active">
                     <div class="box" style="background:var(--bg-checked-ok)"></div> 
@@ -1041,7 +1042,9 @@
         if (e.target.classList.contains('cell-content')) {
             const idx = parseInt(e.target.dataset.idx);
             const key = e.target.dataset.key;
-            pidData[idx][key] = e.target.innerText.trim();
+            let value = e.target.textContent;
+                value = value.replace(/[\r\n]+/g, '');
+                pidData[idx][key] = value;
         }
     });
 
@@ -1066,34 +1069,57 @@
     });
 
     // --- Export ---
-    function exportData() {
-        const checked = pidData.filter(r => r._checked);
-        if(checked.length === 0) { alert("No PIDs selected"); return; }
-        
-        const name = prompt("Filename:", "Log_List");
-        if(!name) return;
-
-        const csvContent = [
-            headers.join(','),
-            ...checked.map(row => headers.map(h => {
-                let v = row[h] || "";
-                return v.includes(',') ? `"${v}"` : v;
-            }).join(','))
-        ].join('\n');
-
-        const blob = new Blob([csvContent], {type: 'text/csv'});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = name.endsWith('.csv') ? name : name + '.csv';
-        a.click();
+function exportData() {
+    const checked = pidData.filter(r => r._checked);
+    if (checked.length === 0) { 
+        alert("No PIDs selected"); 
+        return; 
     }
 
-    window.addEventListener('resize', () => {
-        const containerHeight = scrollContainer.clientHeight;
-        visibleRows = Math.ceil(containerHeight / ROW_HEIGHT) + 10;
-        onScroll();
+    const name = prompt("Filename:", "Log_List");
+    if (!name) return;
+
+    const exportHeaders = headers; // includes Description if present
+    const lines = [];
+
+    // Header row (Excel does not quote headers unless needed)
+    lines.push(exportHeaders.join(','));
+
+    checked.forEach(row => {
+        const line = exportHeaders.map(h => {
+            let v = ( row[h] ?? "").replace(/[\r\n]+/g, '');
+
+            // Excel-style escaping
+            if (v.includes('"')) {
+                v = v.replace(/"/g, '""');
+            }
+
+            // Quote if contains comma, quote, newline, OR leading/trailing space
+            if (
+                v.includes(',') ||
+                v.includes('"') ||
+                v.includes('\n') ||
+                /^\s|\s$/.test(v)
+            ) {
+                return `"${v}"`;
+            }
+
+            return v;
+        }).join(',');
+
+        lines.push(line);
     });
+
+    // Join WITHOUT trailing newline
+    const csvContent = lines.join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name.endsWith('.csv') ? name : name + '.csv';
+    a.click();
+}
 
 </script>
 
